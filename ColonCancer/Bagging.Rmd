@@ -1,0 +1,66 @@
+---
+title: "Bagging"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r}
+
+library(ggplot2)
+
+set.seed(13)
+
+n <- 12
+d <- 12
+x <- runif(n = n, min = -1, max = 1)
+x <- sort(x, decreasing = F)
+y <- sin(pi * x) + rnorm(n = length(x), mean = 0, sd = 0.2)
+
+D <- data.frame(x = x, y = y)
+
+ggplot(D, aes(x = x, y = y)) + geom_point() + ylim(-5, 5)
+
+```
+
+```{r}
+
+model <- lm(y ~ poly(x, d, raw=TRUE))
+
+x0 <- seq(from = -1, to = 1, by = 0.01)
+y0 <- predict(model, data.frame(x = x0))
+yo <- sin(pi * x0)
+Do <- data.frame(x = x0, y = yo)
+
+Dp <- data.frame(x = x0, y = y0)
+
+ggplot(D, aes(x = x, y = y)) + geom_point() + geom_line(data = Dp, aes(x, y)) + geom_line(data = Do, aes(x, y, color = "red")) + ylim(-5, 5)
+
+```
+
+```{r}
+
+m <- 200
+x0 <- seq(from = -1, to = 1, by = 0.01)
+y0 <- c()
+
+for (i in 1:m) {
+  ids <- sample(1:length(x), size = length(x), replace = T)
+  xp <- x[ids]
+  yp <- y[ids]
+  
+  model.new <- lm(yp ~ poly(xp, d, raw=TRUE))
+  y0p <- predict(model.new, data.frame(xp = x0))
+
+  y0 <- rbind(y0, y0p)  
+}
+
+y0 <- apply(y0, 2, median)
+
+Dp <- data.frame(x = x0, y = y0)
+
+ggplot(D, aes(x = x, y = y)) + geom_point() + geom_line(data = Dp, aes(x, y)) + ylim(-5, 5) + geom_line(data = Do, aes(x, y, color = "red"))
+
+
+```
+

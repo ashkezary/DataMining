@@ -1,0 +1,85 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r setup}
+
+library(ggplot2)
+
+X.pos <- rbind(c(2, 1), c(2, 2), c(3, 5), c(0, 5), c(0, 2.5), c(0, 3))
+X.neg <- rbind(c(-1, -1), c(-2, -5), c(-2, -3), c(-5, 0), c(2, 3.5))
+
+X <- rbind(X.pos, X.neg)
+y <- c(rep(1, NROW(X.pos)), rep(-1, NROW(X.neg)))
+
+```
+
+```{r}
+
+ggplot(data.frame(X, y=y), aes(x = X1, y = X2, color=y)) + geom_point()
+
+```
+
+```{r training}
+
+C <- 5
+iter.max <- 3000
+alpha <- 0.01
+eps <- 10^-10
+n <- length(y)
+lambda <- C * runif(n)
+
+Xy <- diag(y) %*% X
+G <- Xy %*% t(Xy)
+f.vals <- rep(0, iter.max)
+
+for (i in 1:iter.max) {
+  grad <- G %*% lambda - rep(1, n)
+  lambda <- lambda - alpha * grad
+  
+  lambda[lambda > C] <- C
+  lambda[lambda < 0] <- 0
+  
+  m <- sum(lambda * y)
+  
+  if (m != 0) {
+    lambda <- lambda - m/n * y
+  }
+  
+  f <- 0.5 * as.double(t(lambda) %*% G %*% lambda) - sum(lambda)
+  f.vals[i] <- f
+  
+  if (sum(grad * grad)^0.5 < eps) {
+    break
+  }
+}
+
+w <- apply(diag(as.vector(lambda) * y) %*% X, 2, sum)
+
+indx <- which.min(abs(lambda - C/2))
+  
+b <- y[indx[1]] - sum(w * X[indx[1], ])
+
+```
+
+```{r optimization curve}
+
+st <- 10
+max.plot <- 3000
+plot(st:max.plot, f.vals[st:max.plot], type = "l")
+
+```
+
+```{r decision boundary}
+
+ggplot(data.frame(X, y=y), aes(x = X1, y = X2, color=y)) + 
+  geom_point() + 
+  geom_abline(slope = -w[1]/w[2], intercept = -b/w[2], color = "red") +
+  geom_abline(slope = -w[1]/w[2], intercept = 1/w[2]-b/w[2], color = "blue", linetype = 2) +
+  geom_abline(slope = -w[1]/w[2], intercept = -1/w[2]-b/w[2], color = "blue", linetype = 2) 
+
+```
+
