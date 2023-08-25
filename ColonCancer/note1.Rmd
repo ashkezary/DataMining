@@ -1,0 +1,192 @@
+---
+title: "R_notebook"
+output:
+  html_notebook: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+<style>
+.header {
+  padding: 40px;
+  text-align: center;
+  background: #1abc9c;
+  color: white;
+  font-size: 20px;
+}
+p,ul    {direction: rtl;font-size:18px;font-family:'XB Niloofar'}
+h4    {direction: rtl;font-size:22px;font-family:'XB Niloofar';font-weight: bold}
+</style>
+<div class="header">
+  <h1><font face="XB Niloofar">سرطان روده بزرگ</font></h1>
+  <p>محمدرضا شمس اشکذری</p>
+</div> 
+
+<p align="justify">
+این پروژه ی درس داده کاوی است که به زبان
+*R*
+نوشته شده است. داده هایی که بررسی می کنیم، داده های مربوط به سرطان روده ی بزرگ
+(colon cancer)
+هستند که از پایگاه 
+<a href="https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary.html#colon-cancer">LIBSVM<a/>
+گرفته شده اند.این داده در واقع داده ی بیان ژن است که از بافت های سالم و سرطانی بدست آمده و  شامل میزان بیان 2000
+ژن در 
+62 
+نمونه است.  
+<p/>
+<h4>خواندن داده ها<h4/>
+
+```{r echo=TRUE}
+library(readr)
+name <- c(paste0("Gene",1:2000))
+colon <- read_table2("colon-cancer", col_names = c("cancer",name))
+```
+<p>
+در ابتدا داده یک فایل
+txt
+به شکل زیر است:
+<p/>
+```{r echo=FALSE}
+colon
+```
+<br>
+<h4>پیش پردازش داده ها</h4>
+<p>
+برای کار کردن با این داده لازم است دست کم دو کار روی آن انجام شود:
+<br>
+<ul>
+<li>
+حذف شماره ستون از ابتدای اعداد هر ستون
+</li>
+<li>
+تبدیل ستون cancer به factor
+</li>
+</ul>
+<br>
+</p>
+
+```{r}
+for (i in 2:2001) {
+  if(i<=10){
+    colon[i] <- as.double(substr(colon[[i]],3,20)) 
+  }else if(i<=100){
+    colon[i] <- as.double(substr(colon[[i]],4,20))
+  }else if(i<=1000){
+    colon[i] <- as.double(substr(colon[[i]],5,20))
+  }else{
+    colon[i] <- as.double(substr(colon[[i]],6,20))
+  }
+}
+colon$cancer <- as.factor(colon$cancer)
+```
+<br>
+<p dir="rtl">
+در اینجا خوب است کمی نسبت به داده هایمان شهود پیدا کنیم. لذا خوب است با رسم چند نمودار این کار را انجام دهیم:
+</p>
+```{r}
+ex <- colon[,2:2001]
+boxplot(ex)
+```
+<p>گرچه این نمودار قدری شلوغ است و خیلی گویا نیست اما همانطور که ملاحظه می شود داده ها همگی نرمال هستند و با میانگین صفر</p>
+<h4>همبستگی نمونه ها<h4/>
+```{r}
+library(pheatmap)
+pheatmap(cor(t(ex)))
+```
+<p>از این نمودار هم می توان استقلال نسبی نمونه ها را نتیجه گرفت. البته برای مدلسازی بیزی به استقلال ویژگی ها بیشتر نیاز داریم اما برای 2000 ویژگی کار قدری مشکل است.</p>
+<h4>جداسازی داده های آموزش و آزمون</h4>
+```{r}
+#train-test Random size
+#spl <- runif(62)
+#train <- subset(colon, spl<=0.75)
+#test <- subset(colon, spl>0.75)
+#train-test explicit size
+ind <- sample(1:62,size = 50)
+train <- colon[ind,]
+test <- colon[-ind,]
+```
+<h4>دسته بند ساده بیزی</h4>
+<p><b>قاعده بیز:</b></p>
+```{=latex}
+\begin{equation}
+\Pr(C|X) = \frac{\Pr(X|C)\Pr(C)}{\Pr(X)}
+\end{equation}
+```
+<p>
+که با جایگذاری ویژگی ها به جای X به فرمول زیر می رسیم:
+</p>
+```{=latex}
+\begin{equation}
+\Pr(C|x_1,x_2,...,x_{2000}) = \frac{\Pr(x_1,x_2,...,x_{2000}|C)\Pr(C)}{\Pr(x_1,x_2,...,x_{2000})}
+\end{equation}
+```
+<p>
+با فرض استقلال هر دو ویژگی از هم داریم:
+</p>
+```{=latex}
+\begin{equation}
+\Pr(C|x_1,x_2,...,x_{2000}) = \Pr(C)\Pi_{i=1}^{2000}\Pr(x_i|C)
+\end{equation}
+```
+<p>
+تا اینجا همه چیز مطابق چیزی بود که در درس داشتیم اما قسمت متفاوت رفتار با داده های پیوسته است که پیشنهاد مقاله این است که برای آنها احتمال شرطی را به صورت زیر حساب می کنیم:
+</p>
+```{=latex}
+\begin{equation}
+\Pr(X_i=x_i|C=c_j) = \frac{1}{\sqrt{2\pi}\sigma}\exp{(-\frac{(x_i-\mu)^2}{2\sigma^2})}
+\end{equation}
+```
+<p>
+حال می توانیم دست به کد شویم:
+</p>
+```{r Naive Bayes}
+#cancer probability
+cprob <- sum(train$cancer==1)/dim(train)[1]
+hprob <- 1-cprob
+ctrain <- subset(train,train$cancer==1)
+htrain <- subset(train,train$cancer==-1)
+hmean <- sapply(htrain[,2:2001], mean)
+hsd <- sapply(htrain[,2:2001], sd)
+cmean <- sapply(ctrain[,2:2001], mean)
+csd <- sapply(ctrain[,2:2001], sd)
+target = c()
+for (i in 1:nrow(test)) {
+p1 = cprob
+p2 = hprob
+  for (j in 1:2000) {
+    p1 = p1*dnorm(test[[i,j+1]],cmean[j],csd[j],log = F)
+    p2 = p2*dnorm(test[[i,j+1]],hmean[j],hsd[j],log = F)
+  }
+if(p1>p2){
+  target = c(target,1)
+}else{
+  target = c(target,-1)
+}
+}
+```
+
+<h4>ارزیابی مدل</h4>
+
+```{r echo=FALSE}
+tp <- sum(target==test$cancer & target==1)
+tn <- sum(target==test$cancer & target==-1)
+fp <- sum(test$cancer==-1 & target==1)
+fn <- sum(test$cancer==1 & target==-1)
+acc <- (tp+tn)/(tp+tn+fp+fn)
+sens <- tp/(tp+fn)
+spec <- tn/(tn+fp)
+f.score <- 2*(acc*sens)/(acc+sens)
+cat(paste0("        |   Real+  |   Real-   ","\n",
+           "predict+|   ",tp,"   |   ", fp,"   ","\n",
+           "predict-|   ",fn,"   |   ", tn,"   ","\n",
+           "******************************************","\n",
+           "Accuracy = ", acc,"\n",
+           "Sensitivity = ", sens,"\n",
+           "Specificity = ", spec,"\n",
+           "f-score = ", f.score,"\n",
+           "******************************************"))
+```
+
+<div class="header">
+  <p>والحمدلله رب العالمین</p>
+</div> 

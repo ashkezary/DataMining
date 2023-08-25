@@ -1,0 +1,135 @@
+---
+title: "Decision_Tree"
+author: "Ashkezari"
+date: "3/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=TRUE}
+library(readr)
+colon <- read_table2("colon-cancer", col_names = c("cancer",1:2000))
+```
+
+```{r}
+for (i in 2:2001) {
+  if(i<=10){
+    colon[i] <- as.double(substr(colon[[i]],3,20)) 
+  }else if(i<=100){
+    colon[i] <- as.double(substr(colon[[i]],4,20))
+  }else if(i<=1000){
+    colon[i] <- as.double(substr(colon[[i]],5,20))
+  }else{
+    colon[i] <- as.double(substr(colon[[i]],6,20))
+  }
+}
+colon$cancer <- as.factor(colon$cancer)
+```
+
+```{r}
+entropy <- function(param){
+  p = sum(param)/ length(param)
+    return(-(p*log2(p)+(1-p)*log2(1-p)))
+}
+IGain <- function(f,par1,par2){
+  ig <- entropy(f)- (length(par1)/length(f))*entropy(par1) - (length(par2)/length(f))*entropy(par2)
+  return(ig)
+}
+```
+
+```{r}
+learn <- function(df,final_features,dep){
+    depth = dep
+    size = nrow(df)
+    features = c()
+    precision = 0
+    pres = c()
+    sensitivity = c()
+    sens = 0
+    sens_size=0
+    specificity = c()
+    spec = 0
+    spec_size=0
+}
+```
+
+"""
+Level 2: Implement IG and Entropy
+After this part final_feature will be a list
+maintain features from the best to the worst
+"""
+
+depth = 22
+final_features = []
+while(len(features) > 0):
+    score = {}
+    maks = 0
+    for f in features:
+        con1 = ((df[f] == 1) == df['tag'])
+        ext1 = np.extract(con1,df[f])
+        con2 = ((df[f] == 1) != df['tag'])
+        ext2 = np.extract(con2,df[f])
+        score[f] = IGain(df[f],ext1,ext2)
+        if score[f]>maks:
+            maks = score[f]
+    choosed = list(score.keys())[list(score.values()).index(maks)]
+    # plt.bar(range(len(score)), list(score.values()), align='center')
+    # plt.xticks(range(len(score)), list(score.keys()))
+    # plt.show()
+    final_features.append(choosed)
+    features.remove(choosed)
+
+print(final_features)
+fd = df
+f1 = df[0:120]
+f2 = df[120:240]
+f3 = df[240:360]
+f4 = df[360:480]
+f5 = df[480:600]
+"""
+In this part learning occur. Actually, I'll
+offer a label for any possible entrance.
+Since we should learn in any depth, So
+machine learn in 22 ways
+"""
+d, pres,features = learn(df,final_features,22,1)
+plt.plot(pres,'g^')
+plt.show()
+d,pres,features = learn(test,features,22,1)
+plt.plot(pres,'bs')
+plt.show()
+"""
+5_fold cross validation,sensitivity and specificity
+"""
+d1,pres1,features1 = learn(f1,final_features,22,1)
+plt.plot(pres1,'bs')
+# plt.show()
+d2,pres2,features2 = learn(f2,final_features,22,1)
+plt.plot(pres2,'g^')
+# plt.show()
+d3,pres3,features3 = learn(f3,final_features,22,1)
+plt.plot(pres3,'o-')
+# plt.show()
+d4,pres4,features4 = learn(f4,final_features,22,1)
+plt.plot(pres4,'ro')
+# plt.show()
+d5,pres5,features5 = learn(f5,final_features,22,1)
+plt.plot(pres5,'b')
+plt.show()
+# print(d1,d2,d3,d4,d5)
+# print((d1+d2+d3+d4+d5)/5)
+df = fd
+sens,spec = learn(fd,final_features,6,0)
+plt.plot(sens,'go')
+plt.plot(spec,'ro')
+plt.show()
+#The problem is that our sensitivity goes over than 1!
+"""
+Make the tree small
+"""
+"""
+Paired t-test to compare pruned and non-pruned trees!
+"""
